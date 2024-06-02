@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AED 위치 표시</title>
+    <style>
+        #map {
+            width : 100%;
+            height : 700px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=047d2413f56196438f508d6b496dd9ed&libraries=services"></script>
+    <script>
+        const xmlDataUrl = 'https://apis.data.go.kr/6260000/BusanAedsService/getAedsList?serviceKey=X8s%2BvuX0%2F3WxkVikH1ZCFuWcowECbvxJ%2FTUSmNA3uHCkErHNm15tHPUXOyd7gxmDw1wIJEBisOCb%2B2XaNsAOCg%3D%3D&pageNo=1&numOfRows=1079'; // 여기에 API 주소를 입력하세요.
+
+        // 카카오맵 로드 및 지도 생성
+        const container = document.getElementById('map');
+        const options = {
+            center: new kakao.maps.LatLng(35.179816, 129.075075), // 기본 위치 설정
+            level: 4 // 확대 수준 설정
+        };
+        const map = new kakao.maps.Map(container, options);
+
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const lat = position.coords.latitude; // 위도
+                const lng = position.coords.longitude; // 경도
+
+                const centerPosition = new kakao.maps.LatLng(lat, lng);
+                map.setCenter(centerPosition);
+            }, function() {
+                console.error('Error: The Geolocation service failed.');
+            });
+        } else {
+            console.error('Error: Your browser doesn\'t support geolocation.');
+        }
+
+        // XML 데이터 가져오기
+        fetch(xmlDataUrl)
+            .then(response => response.text())
+            .then(data => {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(data, 'text/xml');
+                const items = xmlDoc.getElementsByTagName('item');
+
+                for (let i = 0; i < items.length; i++) {
+                    const addrs = items[i].getElementsByTagName('addrs')[0].textContent;
+                    const geom = items[i].getElementsByTagName('geom')[0].textContent;
+                    const [longitude, latitude] = geom.replace('POINT(', '').replace(')', '').split(' ');
+                    
+/*                    var imageSrc = 'AED 이미지.jpg', // 마커이미지의 주소입니다    
+                    imageSize = new kakao.maps.Size(40, 42), // 마커이미지의 크기입니다
+                    imageOption = {offset: new kakao.maps.Point(27, 69)}; // 마커이미지의 옵션입니다. 마커의 좌표와 일치시킬 이미지 안에서의 좌표를 설정합니다.
+                    
+                    // 마커의 이미지정보를 가지고 있는 마커이미지를 생성합니다
+                    var markerImage = new kakao.maps.MarkerImage(imageSrc, imageSize, imageOption)
+*/
+                    // 마커 생성 및 지도에 추가
+                    const markerPosition = new kakao.maps.LatLng(parseFloat(latitude), parseFloat(longitude));
+                    const marker = new kakao.maps.Marker({
+                        position: markerPosition
+//                        image: markerImage
+                    });
+                    marker.setMap(map);
+
+                    // 인포윈도우 생성
+                    const infowindow = new kakao.maps.InfoWindow({
+                        content: addrs
+                        
+                    });
+
+                    // 마커에 클릭 이벤트 등록
+                    kakao.maps.event.addListener(marker, 'click', function() {
+                        infowindow.open(map, marker);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching XML data:', error);
+            });
+    </script>
+</body>
+</html>
